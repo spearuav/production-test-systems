@@ -5,12 +5,13 @@ from pathlib import Path
 from enum import IntEnum,auto
 from modules.logo_reader import LogoReader
 from modules.test_reader import TestReader
-from modules.port_finder import PortFinder
+from modules.port_finder import PortFinder, PortInfo
 import traceback
 from modules.util import  set_base_dir, get_base_dir, logger, setup_logger,\
     write_exception_to_log, clear_terminal
 from menu.style import PALETTE as P
 from menu.main_menu import render_main_menu
+from menu.port_selector import render_port_selector, color_selector as port_color
 
 # Initialize BASE_DIR directly
 set_base_dir(__file__)
@@ -27,7 +28,7 @@ class App():
         self.tests = TestReader()
         self.testinfo = self.NO_TEST_INFO
         self.port_finder = PortFinder()
-        self.port = None
+        self.port_error = None
         self.operator_name = self.NOT_AVAILABLE
         self.launcher_sn = self.NOT_AVAILABLE
         self.test_start_time = self.NOT_AVAILABLE
@@ -67,10 +68,11 @@ class App():
             self.testinfo = f"{Fore.RED} Test error: {Style.RESET_ALL}{e}"
             print (self.testinfo)
         try:
-            self.port = self.port_finder.select_port()            
-            if self.port is None:
+            self.port_finder.select_port()
+            inf_port = self.port_finder.inf_current_port
+            if inf_port is None:
                 self.load_exception_happend = True
-                self.port = f"{Fore.RED} Ports error: {Style.RESET_ALL} No suitable ports found"
+                self.port_error = f"{Fore.RED} Ports error: {Style.RESET_ALL} No suitable ports found"
         except Exception as e:
             self.load_exception_happend = True
             write_exception_to_log()
@@ -85,12 +87,14 @@ class App():
         """Main menu logic and state calculation"""
         try:
             # 1. CALCULATE FACTS (The "State")
+
+            inf_port = self.port_finder.inf_current_port
             has_op = self.operator_name not in [None, self.NOT_AVAILABLE, ""]
             has_sn = self.launcher_sn not in [None, self.NOT_AVAILABLE, ""]
             
             # Port detection logic
-            is_port_valid = hasattr(self.port, 'vid') and self.port.vid in [11914, 9114]
-            is_port_error = isinstance(self.port, str) # Usually means an error message string
+            is_port_valid = inf_port is not None and (inf_port.probed or inf_port.known_vid)
+            is_port_error = isinstance(inf_port, str) or inf_port is None or not inf_port.is_usb # Usually means an error message string
             
             # Test loading logic
             tests_loaded = not self.tests.error and self.tests.action_count >= 1 and self.tests.test_count >= 1
@@ -107,8 +111,9 @@ class App():
                 "launcher_sn": self.launcher_sn,
                 
                 # Formatting the port string
-                "port_display": (f"{P['bright']}{self.port.name}{P['normal']} {self.port.description}" 
-                                if is_port_valid else self.port),
+                "port_display": f"{port_color(inf_port)} {P['bright']}{inf_port.port.name}{P['normal']} {inf_port.port.description}"
+                                if isinstance(inf_port, PortInfo) else
+                                f"{P['error']}{self.port_error}{P['reset']}",  # If
                 
                 # Formatting test info
                 "test_info_str": (f"\t\t{P['error']}{self.testinfo}{P['reset']}" 
@@ -132,13 +137,116 @@ class App():
 
         # 4. INTERACTION
         try:
-            return input(f"\n{P['bright']} Select a number and Press Enter to Continue...{P['normal']} sssssss")
-        except KeyboardInterrupt:
-            exit(-1)
+            input_ = input(f"\n{P['bright']} Select a number and Press Enter to Continue: {P['normal']}")
+            options = {
+                "1": self.operator_name_entry,
+                "2": self.launcher_sn_entry,
+                "3": self.select_port,
+                "4": self.run_tests,
+                "5": self.run_test_menu,
+                "6": self.reload_data,
+                "7": self.exit,
+            }
+            if input_ in options:
+                self.state=options[input_]
+        except KeyboardInterrupt as e:
+            raise e
         except Exception:
             import traceback
             traceback.print_exc()
 
+    def operator_name_entry(self):
+
+        has_op =  self.operator_name not in [None, self.NOT_AVAILABLE, ""]
+        print(f"""\
+            Current SN: {P['good'] if has_op else P['warning']}{self.operator_name}
+            Write a new SN or leave empty to keep current SN: """)
+        try:
+            input_ = input()
+            if input_:
+                self.operator_name = input_
+        except KeyboardInterrupt:
+            pass
+        finally:
+            self.state = self.main_menu
+
+    def launcher_sn_entry(self):
+        has_sn =  self.launcher_sn not in [None, self.NOT_AVAILABLE, ""]
+        print(f"""\
+            Current SN: {P['good'] if has_sn else P['warning']}{self.launcher_sn}
+            Write a new SN or leave empty to keep current SN: """)
+        try:
+            input_ = input()
+            if input_:
+                self.launcher_sn = input_
+        except KeyboardInterrupt:
+            pass
+        finally:
+            self.state = self.main_menu
+
+    def select_port(self):
+        last_action = None
+        while True:
+            props={
+                "logo": self.logo,
+                "PortInfoList" : self.port_finder.get_serial_ports(),
+                "current_port" : self.port_finder.inf_current_port,
+                "last_action": last_action
+            }
+            # 3. RENDER
+            clear_terminal()  # Assuming this exists in your scope
+            print(render_port_selector(props))
+
+            input_ = input(f"\n{P['bright']} Write a port number and Press Enter to Continue\n or write one of the options (p, a, s, b): {P['normal']}")
+            input_ = input_.lower()
+
+            if input_ == "b":
+                self.state = self.main_menu
+                return
+            elif input_ == "p":
+                if self.port_finder.inf_current_port is not None:
+                    result = self.port_finder.probe(self.port_finder.inf_current_port)
+                    last_action = f"Probed {self.port_finder.inf_current_port.port.name}: {'Success' if result == True else f'Failed ({result})'}"
+                else:
+                    last_action = "No port selected to probe."
+            elif input_ == "a":
+                candidates = self.port_finder.find_port_candidates()
+                if not candidates:
+                    last_action = "No candidate ports found to probe."
+                else:
+                    results = []
+                    for port in candidates:
+                        result = self.port_finder.probe(port)
+                        results.append((port, result))
+                    last_action = "Auto-probe results:\n" + "\n".join([f"{port.port.name}: {'Success' if res == True else f'Failed ({res})'}" for port, res in results])
+            elif input_ == "s":
+                self.port_finder.get_serial_ports()  # Refresh the port list
+                last_action = "Port list refreshed."
+            elif input_.isdigit():
+                index = int(input_) - 1
+                ports = self.port_finder.get_serial_ports()
+                if 0 <= index < len(ports):
+                    self.port_finder.inf_current_port = ports[index]
+                    last_action = f"Selected port: {ports[index].port.name}"
+                else:
+                    last_action = "Invalid port number."
+            else:
+                last_action = "Invalid input. Please try again."
+
+    def run_tests(self):
+        raise NotImplemented()
+
+    def run_test_menu(self):
+        raise NotImplemented()
+
+    def reload_data(self):
+        clear_terminal()
+        self.load_data()
+        self.state = self.main_menu
+
+    def exit(self):
+        # TODO: add cleanup code if there is any
+        exit(0)
 
 
         

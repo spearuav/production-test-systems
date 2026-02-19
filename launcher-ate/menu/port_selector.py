@@ -25,14 +25,7 @@ s. Rescan port list
 def color_selector(port:PortInfo):
     # color "vector"
     v="⚫🔴🟡🟢🔵"
-    # return \
-    # (
-    #     v[0] if not port.is_serial else
-    #     v[1] if not port.is_usb else
-    #     v[2] if not port.known_vid else
-    #     v[3] if not port.probed else
-    #     v[4]
-    # )
+    
     return \
     (
         v[4] if port.probed else

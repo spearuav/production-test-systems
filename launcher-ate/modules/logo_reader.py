@@ -2,7 +2,7 @@ import os
 import pathlib
 
 
-class Logo_reader():
+class LogoReader():
     base_dir = None
     FILE_NAME = "logo.ascii_art.txt"
     def __init__(self,base_dir:pathlib.Path):
@@ -13,4 +13,4 @@ class Logo_reader():
             return value
     @staticmethod
     def get_filename():
-        return Logo_reader.FILE_NAME
+        return LogoReader.FILE_NAME

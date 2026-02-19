@@ -2,7 +2,7 @@
 from modules.util import get_base_dir
 
 
-class Test_reader:
+class TestReader:
     """Reads and validates test configurations"""
     
     def __init__(self):

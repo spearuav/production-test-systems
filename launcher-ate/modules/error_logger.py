@@ -2,7 +2,7 @@
 
 
 from enum import IntEnum, auto
-from logo_reader import Logo_reader
+from logo_reader import LogoReader
 from util import BASE_DIR
 from colorama import Fore, Back, Style
 
@@ -19,7 +19,7 @@ LOGO_FULL_PATH = BASE_DIR/'logo'
 
 ERROR_HANDLING_DICT:dict[Error_types,dict[type,str]] = {
     Error_types.LOGO : {
-        FileNotFoundError: f"The logo file: {Logo_reader.get_filename()} wasn't found in {BASE_DIR}",
+        FileNotFoundError: f"The logo file: {LogoReader.get_filename()} wasn't found in {BASE_DIR}",
         PermissionError: f"Bad file permission for {LOGO_FULL_PATH}",
         IsADirectoryError: f"{LOGO_FULL_PATH} is a folder (should be a file)",
         UnicodeDecodeError: f"The file {LOGO_FULL_PATH} contains invalid characters",

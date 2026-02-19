@@ -1,5 +1,6 @@
 # launcher-ate/modules/port_finder.py
 import serial.tools.list_ports
+from serial.tools.list_ports_common import ListPortInfo
 from modules.util import get_base_dir, logger, write_exception_to_log
 from dataclasses import dataclass
 
@@ -9,7 +10,7 @@ from dataclasses import dataclass
 
 @dataclass
 class PortInfo:
-    port: serial.tools.list_ports.ListPortInfo
+    port: ListPortInfo
     known_vid: bool = False
     probed: bool = False
 
@@ -24,7 +25,7 @@ class PortFinder:
         
     def get_serial_ports(self):
         ports = serial.tools.list_ports.comports()
-        port_info = map(lambda port: PortInfo(port, known_vid=port.vid in [11914, 9114], probed=port_info in self.probed_map))
+        port_info = map(lambda port: PortInfo(port, known_vid=port.vid in [11914, 9114], probed=port_info in self.probed_map),ports)
         
         return self.serial_ports
     
@@ -32,7 +33,7 @@ class PortFinder:
         #raise NotImplemented("Port_finder.probe")
         try:
             port.port.connect()
-            if port.port.read().find("SpearUAV Viper300 test equipment ver") == 0:
+            if port.port.read().find("SpearUAV Viper300 launcher test ver") == 0:
                 port.probed = True
                 self.probed_map[port.port.serial_number] = True
                 return True

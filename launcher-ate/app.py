@@ -59,17 +59,18 @@ class App():
             self.logo = f"\t{Fore.YELLOW} Logo warning: {Style.RESET_ALL}{e}"
             print(self.logo)
         try:
-            self.testinfo = self.tests.load()
+            self.tests.load()
+            self.testinfo = f"{P['good']} Found {P['bright']}{self.tests.test_count}{P['normal']} tests and {P['bright']}{self.tests.action_count}{P['normal']} actions{P['reset']}"
         except Exception as e:
             self.load_exception_happend = True
             write_exception_to_log() 
-            self.testinfo = f"\t{Fore.RED} Test error: {Style.RESET_ALL}{e}"
+            self.testinfo = f"{Fore.RED} Test error: {Style.RESET_ALL}{e}"
             print (self.testinfo)
         try:
             self.port = self.port_finder.select_port()            
             if self.port is None:
                 self.load_exception_happend = True
-                self.port = f"\t{Fore.RED} Ports error: {Style.RESET_ALL} No suitable ports found"
+                self.port = f"{Fore.RED} Ports error: {Style.RESET_ALL} No suitable ports found"
         except Exception as e:
             self.load_exception_happend = True
             write_exception_to_log()
@@ -92,7 +93,7 @@ class App():
             is_port_error = isinstance(self.port, str) # Usually means an error message string
             
             # Test loading logic
-            tests_loaded = self.testinfo is not None
+            tests_loaded = not self.tests.error and self.tests.action_count >= 1 and self.tests.test_count >= 1
             
             # "Can Run" requires a valid port AND loaded tests
             can_run_tests = tests_loaded and is_port_valid
@@ -111,7 +112,7 @@ class App():
                 
                 # Formatting test info
                 "test_info_str": (f"\t\t{P['error']}{self.testinfo}{P['reset']}" 
-                                if not tests_loaded else ""),
+                                if not tests_loaded else self.testinfo),
 
                 # Mapping semantic colors
                 "op_color":   P['good'] if has_op else P['warning'],
@@ -131,7 +132,7 @@ class App():
 
         # 4. INTERACTION
         try:
-            return input(f"\n{P['bright']} Select a number and Press Enter to Continue...{P['normal']}")
+            return input(f"\n{P['bright']} Select a number and Press Enter to Continue...{P['normal']} sssssss")
         except KeyboardInterrupt:
             exit(-1)
         except Exception:

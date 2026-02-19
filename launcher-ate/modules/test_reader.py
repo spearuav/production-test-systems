@@ -9,9 +9,16 @@ class TestReader:
         self.base_dir = get_base_dir()
         self.tests_dir = self.base_dir / "tests"
         self.actions = self.base_dir / "actions"
+        self.test_count = 0
+        self.action_count = 0
+        self.error = False
         
     def load(self):
         """Load test information and validate required files"""
+        self.test_count = 0
+        self.action_count = 0
+        self.error = True
+        
         # Check if tests directory exists
         if not self.tests_dir.exists():
             raise FileNotFoundError(f"Tests directory not found: {self.tests_dir}")
@@ -31,18 +38,15 @@ class TestReader:
             raise FileNotFoundError(f"iperf.py not found in tests directory: {iperf_py}")
         
         # Count tests and actions
-        test_count = 0
-        action_count = 0
-
         # Count files in tests directory (excluding setup.py and iperf.py)
         if self.tests_dir.exists():
             for item in self.tests_dir.iterdir():
-                test_count += 1
+                self.test_count += 1
 
         # Count files in actions directory (excluding setup.py)
         if self.actions.exists():
             for item in self.actions.iterdir():
-                action_count += 1
-
+                self.action_count += 1
+        
         # If we get here, all required files exist
-        return f"Found {test_count} tests and {action_count} actions."
+        self.error = False

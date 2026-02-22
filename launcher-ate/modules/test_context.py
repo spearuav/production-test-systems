@@ -1,5 +1,5 @@
+from contextlib import contextmanager
 
-import time
 
 class Readable:
     def __init__(self, name):
@@ -37,12 +37,19 @@ class Setable:
         pass
 
 
+class TestResult(Exception):
+    """Base exception for test results."""
+    def __init__(self, message, success):
+        super().__init__(message)
+        self.success = success
+
+
 class TestContext:
-    def __init__(self, operator_name, launcher_sn, logger, atr_writer):
-        self.operator_name = operator_name
-        self.launcher_sn = launcher_sn
-        self.logger = logger
-        self.atr_writer = atr_writer
+    """
+    Context object passed to tests containing only the resources they need.
+    Does NOT expose logger, ATRWriter, operator_name, or launcher_sn.
+    """
+    def __init__(self):
         self.i2c = {"timeout": None, "limits": None}
         self.op_timeout = None
 
@@ -68,52 +75,63 @@ class TestContext:
         self.LAUNCH_EN = Setable("LAUNCH_EN")
         self.LAUNCH_CONSENT = Setable("LAUNCH_CONSENT")
 
-    # Test methods
+    # Test control methods
     def fail(self, message):
-        self.log(f"Test failed: {message}")
-        self._test_end(success=False)
-        raise Exception(message)
+        """Mark the current test as failed and stop execution."""
+        raise TestResult(message, success=False)
 
-    def success(self):
-        msg= "Test succeeded"
-        self.log(msg)
-        self._test_end(success=True)
-        raise Exception(msg)
-
-    # Logging
-    def log(self, text):
-        self.logger.info(text)
+    def success(self, message="Test succeeded"):
+        """Mark the current test as successful and stop execution."""
+        raise TestResult(message, success=True)
 
     def operator_action(self, message):
+        """Request an action from the operator."""
         return input(f"Operator action required: {message}")
-
 
     # Test utilities
     def test_time_to_trigger(self):
-        self.log("Testing time to trigger")
+        """Test time to trigger logic."""
+        # Implement time to trigger test logic here
+        pass
 
     def test_time_to_value(self):
-        self.log("Testing time to value")
+        """Test time to value logic."""
+        # Implement time to value test logic here
+        pass
 
     def test_stable(self):
-        self.log("Testing stability")
-
-    # Test execution
-    def run_test(self, name):
-        self.log(f"Running test: {name}")
-        self._test_start_time = time.time()
-        self._test_name = name
-
-    def _test_end(self, success):
-        end_time = time.time()
-        duration = end_time - getattr(self, '_test_start_time', end_time)
-        status = 'passed' if success else 'failed'
-        self.log(f"Test {status}: {getattr(self, '_test_name', '')}")
-        self.log(f"Test time taken: {duration:.2f} seconds")
-
-    def run_action(self, name):
-        self.log(f"Running action: {name}")
+        """Test stability logic."""
+        # Implement stability test logic here
+        pass
 
     # Iperf
     def iperf(self, **parameters):
-        self.log(f"Running iperf with parameters: {parameters}")
+        """Run iperf with given parameters."""
+        # Implement iperf logic here
+        pass
+
+    @contextmanager
+    def select(self, *names):
+        """
+        Context manager for clean resource access.
+        
+        Usage:
+            with context.select('ON', 'OFF', 'V5_UUT') as (ON, OFF, V5):
+                ON.set(True)
+                voltage = V5.value
+        
+        This allows tests to unpack only the resources they need and use them
+        without the context. prefix, making code cleaner and more readable.
+        """
+        resources = []
+        for name in names:
+            if hasattr(self, name):
+                resources.append(getattr(self, name))
+            else:
+                # Special case for methods like 'fail', 'success'
+                if name in ('fail', 'success', 'operator_action'):
+                    resources.append(getattr(self, name))
+                else:
+                    raise AttributeError(f"TestContext has no attribute '{name}'")
+        
+        yield tuple(resources) if len(resources) > 1 else resources[0]

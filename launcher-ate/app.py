@@ -90,14 +90,7 @@ class App():
             except:
                 exit(-1)
 
-    def make_test_context(self):
-            """Create a TestContext with logger and ATRWriter."""
-            return TestContext(
-                operator_name=self.operator_name,
-                launcher_sn=self.launcher_sn,
-                logger=TestLogger(get_base_dir() / "test_logs"),
-                atr_writer=ATRWriter(get_base_dir() / "atr_log", self.tests.tests)
-            )
+    # TestContext creation is now handled internally by TestRunner
 
     def main_menu(self):
         """Main menu logic and state calculation"""
@@ -252,13 +245,28 @@ class App():
     def run_tests(self):
         """Run all tests and log the results."""
         try:
-            context = self.make_test_context()
+            # Create test logger and ATR writer
+            test_logger = TestLogger(get_base_dir() / "test_logs")
+            atr_writer = ATRWriter(get_base_dir() / "atr_log", self.tests.tests)
+            
+            # Create test loader
             test_loader = TestLoader(tests_dir=self.tests.tests_dir, actions_dir=self.tests.actions_dir)
             # Attach actions and tests attributes for compatibility
             test_loader.actions = self.tests.actions
             test_loader.tests = self.tests.tests
-            runner = TestRunner(test_loader)
-            runner.run_all_tests(context)
+            
+            # Create and run test runner
+            runner = TestRunner(
+                test_loader=test_loader,
+                logger=test_logger,
+                atr_writer=atr_writer,
+                operator_name=self.operator_name,
+                launcher_sn=self.launcher_sn
+            )
+            runner.run_all_tests()
+            
+            # Wait for user input before returning to main menu
+            input(f"\n{P['bright']}Tests completed. Press Enter to continue...{P['normal']}")
         except Exception as e:
             self.load_exception_happend = True
             write_exception_to_log()
@@ -273,18 +281,35 @@ class App():
             if test_name is None:
                 self.state = self.main_menu
                 return
+            
+            # Create test logger and ATR writer
+            test_logger = TestLogger(get_base_dir() / "test_logs")
+            atr_writer = ATRWriter(get_base_dir() / "atr_log", self.tests.tests)
+            
+            # Create test loader
             test_loader = TestLoader(tests_dir=self.tests.tests_dir, actions_dir=self.tests.actions_dir)
             # Attach actions and tests attributes for compatibility
             test_loader.actions = self.tests.actions
             test_loader.tests = self.tests.tests
-            runner = TestRunner(test_loader)
-
-            context = self.make_test_context()
-            runner.run_single_test(context, test_name)
+            
+            # Create and run test runner
+            runner = TestRunner(
+                test_loader=test_loader,
+                logger=test_logger,
+                atr_writer=atr_writer,
+                operator_name=self.operator_name,
+                launcher_sn=self.launcher_sn
+            )
+            runner.run_single_test(test_name)
+            
+            # Wait for user input before returning to main menu
+            input(f"\n{P['bright']}Test completed. Press Enter to continue...{P['normal']}")
         except Exception as e:
             self.load_exception_happend = True
             write_exception_to_log()
             print(f"{Fore.RED}Error running test: {Style.RESET_ALL}{e}")
+        finally:
+            self.state = self.main_menu
 
     def select_test(self):
         """Display a menu to select a test, with option to go back."""

@@ -14,6 +14,10 @@ class TestLoader:
         return self._load_module(self.actions_dir, name)
 
     def _load_module(self, directory: Path, name: str):
+        # Strip .py extension if present to avoid double extension
+        if name.endswith('.py'):
+            name = name[:-3]
+        
         module_path = directory / f"{name}.py"
         if not module_path.exists():
             raise FileNotFoundError(f"Module {name} not found in {directory}")

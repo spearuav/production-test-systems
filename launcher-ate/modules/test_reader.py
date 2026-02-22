@@ -50,12 +50,14 @@ class TestReader:
             exclude_files (list, optional): List of file names to exclude. Defaults to None.
 
         Returns:
-            list: Sorted list of file names in the directory, excluding specified files.
+            list: Sorted list of file names (without .py extension) in the directory, excluding specified files.
         """
         if not directory.exists():
             return []
         
         exclude_files = set(exclude_files or [])
+        # Get .py files and strip the extension for cleaner test names
         return sorted(
-            [item.name for item in directory.iterdir() if item.is_file() and item.name not in exclude_files]
+            [item.stem for item in directory.iterdir() 
+             if item.is_file() and item.suffix == '.py' and item.name not in exclude_files]
         )

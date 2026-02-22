@@ -1,14 +1,18 @@
-
+from ctypes import util
+from encodings.punycode import T
 
 from colorama import Fore, Back, Style, just_fix_windows_console
 from pathlib import Path
 from enum import IntEnum,auto
 from modules.logo_reader import LogoReader
 from modules.test_reader import TestReader
+from modules.test_loader import TestLoader
+from modules.test_runner import TestRunner
+from modules.test_context import TestContext
+from modules.atr_writer import ATRWriter
 from modules.port_finder import PortFinder, PortInfo
-import traceback
 from modules.util import  set_base_dir, get_base_dir, logger, setup_logger,\
-    write_exception_to_log, clear_terminal
+    write_exception_to_log, clear_terminal, TestLogger
 from menu.style import PALETTE as P
 from menu.main_menu import render_main_menu
 from menu.port_selector import render_port_selector, color_selector as port_color
@@ -17,6 +21,8 @@ from menu.port_selector import render_port_selector, color_selector as port_colo
 set_base_dir(__file__)
 
 class App():
+
+        
     """Main app, orchestrates and runs stuff"""
 
     NO_TEST_INFO = "No tests Found"
@@ -50,6 +56,7 @@ class App():
                 write_exception_to_log()
     
     def load_data(self):
+        self.load_exception_happend = False
         try:
             self.logo = self.logo_reader.read()
             print(self.logo)
@@ -82,6 +89,15 @@ class App():
                 input(f"\n{Style.BRIGHT} Press Enter to Continue...{Style.NORMAL}")
             except:
                 exit(-1)
+
+    def make_test_context(self):
+            """Create a TestContext with logger and ATRWriter."""
+            return TestContext(
+                operator_name=self.operator_name,
+                launcher_sn=self.launcher_sn,
+                logger=TestLogger(get_base_dir() / "test_logs"),
+                atr_writer=ATRWriter(get_base_dir() / "atr_log", self.tests.tests)
+            )
 
     def main_menu(self):
         """Main menu logic and state calculation"""
@@ -234,10 +250,60 @@ class App():
                 last_action = "Invalid input. Please try again."
 
     def run_tests(self):
-        raise NotImplemented()
+        """Run all tests and log the results."""
+        try:
+            context = self.make_test_context()
+            test_loader = TestLoader(tests_dir=self.tests.tests_dir, actions_dir=self.tests.actions_dir)
+            # Attach actions and tests attributes for compatibility
+            test_loader.actions = self.tests.actions
+            test_loader.tests = self.tests.tests
+            runner = TestRunner(test_loader)
+            runner.run_all_tests(context)
+        except Exception as e:
+            self.load_exception_happend = True
+            write_exception_to_log()
+            print(f"{Fore.RED}Error running tests: {Style.RESET_ALL}{e}")
+        finally:
+            self.state = self.main_menu
 
     def run_test_menu(self):
-        raise NotImplemented()
+        """Display a menu to select and run a single test."""
+        try:
+            test_name = self.select_test()
+            if test_name is None:
+                self.state = self.main_menu
+                return
+            test_loader = TestLoader(tests_dir=self.tests.tests_dir, actions_dir=self.tests.actions_dir)
+            # Attach actions and tests attributes for compatibility
+            test_loader.actions = self.tests.actions
+            test_loader.tests = self.tests.tests
+            runner = TestRunner(test_loader)
+
+            context = self.make_test_context()
+            runner.run_single_test(context, test_name)
+        except Exception as e:
+            self.load_exception_happend = True
+            write_exception_to_log()
+            print(f"{Fore.RED}Error running test: {Style.RESET_ALL}{e}")
+
+    def select_test(self):
+        """Display a menu to select a test, with option to go back."""
+        print(f"{Fore.CYAN}Available Tests:{Style.RESET_ALL}")
+        for i, test in enumerate(self.tests.tests, start=1):
+            print(f"{i}. {test}")
+        print(f"b. Back")
+        while True:
+            choice = input(f"{Fore.YELLOW}Select a test by number or 'b' to go back: {Style.RESET_ALL}").strip().lower()
+            if choice == 'b':
+                return None
+            try:
+                num = int(choice)
+                if 1 <= num <= len(self.tests.tests):
+                    return self.tests.tests[num - 1]
+                else:
+                    print(f"{Fore.RED}Invalid choice. Please try again.{Style.RESET_ALL}")
+            except ValueError:
+                print(f"{Fore.RED}Invalid input. Please enter a number or 'b'.{Style.RESET_ALL}")
 
     def reload_data(self):
         clear_terminal()
@@ -249,7 +315,6 @@ class App():
         exit(0)
 
 
-        
 if __name__ == '__main__':
     just_fix_windows_console()  # if in a windows terminal, wrap stdin stdout in
                                 # a file objects that intercepts ANSI sequences

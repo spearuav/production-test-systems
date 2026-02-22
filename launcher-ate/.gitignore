@@ -4,3 +4,5 @@ __pycache__
 
 #app outputs
 debug_log.txt
+test_logs/*
+atr_log/*

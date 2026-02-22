@@ -56,10 +56,12 @@ def render_port_selector(props: dict):
                         [f"{P["error"]}No ports were found"] if len(info_list) == 0 else \
                         f"{color_selector(port)} {index}. {P["bright"]}{port.port.name} {P["normal"]}{port.port.usb_info()}.",info_list,indexes)\
                         )
+    
     current_port_line = f"\t{P["error"]}No port selected" if not current_port else \
                         f"\t{color_selector(current_port)} {P["bright"]}{current_port.port.name} {P["normal"]}{current_port.port.usb_info()}"
     # Merge global styles with the specific instance data
     # This allows the template to use {neutral}, {reset}, etc. automatically
+    
     render_context = {
         **PALETTE,
         **props,

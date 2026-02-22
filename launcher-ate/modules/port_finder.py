@@ -74,6 +74,7 @@ class PortFinder:
             self.inf_current_port = self.find_port_candidates()[0]
         except IndexError:
             self.inf_current_port = None
+            raise Exception("No suitable port found")
         return self.inf_current_port
 
 
